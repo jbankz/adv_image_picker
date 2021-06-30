@@ -108,7 +108,7 @@ class _GalleryPageState extends State<GalleryPage> {
           backgroundColor: AdvImagePicker.primaryColor,
           child: Icon(
             CupertinoIcons.check_mark,
-            size: 50,
+            size: 24,
           ),
           onPressed: () async {
             await submit();

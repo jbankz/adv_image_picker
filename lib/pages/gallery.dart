@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:adv_image_picker/adv_image_picker.dart';
 import 'package:adv_image_picker/models/album_item.dart';
 import 'package:adv_image_picker/models/result_item.dart';
-import 'package:adv_image_picker/pages/result.dart';
 import 'package:adv_image_picker/plugins/adv_image_picker_plugin.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:image_list/image_list.dart';
 
@@ -43,7 +42,6 @@ class _GalleryPageState extends State<GalleryPage> {
 
       for (Album album in _albums) {
         var res = await AdvImagePickerPlugin.getAlbumAssetsId(album);
-
         album.items.addAll(res.map<AlbumItem>((id) {
           return AlbumItem(id);
         }));
@@ -60,27 +58,9 @@ class _GalleryPageState extends State<GalleryPage> {
     }
   }
 
-  void toggleMultipleMode() {
-    if (_controller == null || albums == null) return;
-
+  void _toggleMultipleMode() {
+    // if (_controller == null || albums == null) return;
     if (!_multipleMode) {
-      _scaffoldKey.currentState!
-          .showBottomSheet((BuildContext context) {
-            return _SmartButton(
-              buttonController,
-              onPressed: () async {
-                await submit();
-              },
-            );
-          })
-          .closed
-          .then((_) {
-            if (this.mounted)
-              setState(() {
-                switchMultipleMode();
-              });
-          });
-
       switchMultipleMode();
     } else {
       Navigator.pop(context);
@@ -97,66 +77,68 @@ class _GalleryPageState extends State<GalleryPage> {
         images.add(ResultItem(data.albumId, data.assetId));
       }
     }
+    // Widget page = ResultPage(images);
 
-    Widget page = ResultPage(images);
+    // Navigator.push(
+    //     context, MaterialPageRoute(builder: (BuildContext context) => page));
 
-    Navigator.push(
-        context, MaterialPageRoute(builder: (BuildContext context) => page));
+    Navigator.popUntil(context, ModalRoute.withName("AdvImagePickerHome"));
+    if (Navigator.canPop(context)) Navigator.pop(context, images);
   }
 
   void switchMultipleMode() {
     buttonController.value = 0;
-
     _marginBottom = _multipleMode ? 0.0 : 80.0;
     _multipleMode = !_multipleMode;
-    _controller!.setMaxImage(_multipleMode ? null : 1);
+    _controller!.setMaxImage(_multipleMode ? widget.maxSize : 1);
   }
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  int _index = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
+      floatingActionButton: FloatingActionButton(
+          backgroundColor: AdvImagePicker.primaryColor,
+          child: Icon(
+            CupertinoIcons.check_mark,
+            size: 50,
+          ),
+          onPressed: () async {
+            await submit();
+          }),
       appBar: new AppBar(
         elevation: 0,
         centerTitle: false,
         backgroundColor: Colors.white,
         iconTheme: IconThemeData(color: Colors.black87),
-        actions: (widget.allowMultiple)
-            ? [
-                IconButton(
-                  onPressed: () {
-                    toggleMultipleMode();
-                  },
-                  icon: Icon(
-                    _multipleMode ? Icons.photo : Icons.photo_library,
-                    color: Colors.black87,
-                  ),
-                )
-              ]
-            : [],
+        actions: [
+          PopupMenuButton(
+              onSelected: (int index) {
+                setState(() {
+                  _index = index;
+                  _selectedAlbum = albums!.firstWhere(
+                      (Album album) => album.name == albums![index].name);
+                  _controller!.reloadAlbum(_selectedAlbum!.identifier);
+                });
+              },
+              itemBuilder: (context) => List.generate(
+                  albums!.length,
+                  (index) => PopupMenuItem(
+                        child: Text(albums![index].name),
+                        value: index,
+                      )))
+        ],
         title: Center(
-          child: DropdownButton(
-            underline: Container(),
-            isDense: true,
-            isExpanded: true,
-            items: albums == null || albums!.length == 0
-                ? [DropdownMenuItem(child: Text(""), value: "")]
-                : albums!.map((Album album) {
-                    return DropdownMenuItem(
-                        child: Text("${album.name}"), value: album.name);
-                  }).toList(),
-            value: albums == null || _selectedAlbum == null
-                ? ""
-                : _selectedAlbum!.name,
-            onChanged: (albumName) {
-              if (albumName == null || albums!.length == 0) return;
-
-              setState(() {
-                _selectedAlbum =
-                    albums!.firstWhere((Album album) => album.name == albumName);
-                _controller!.reloadAlbum(_selectedAlbum!.identifier);
-              });
-            },
+          child: Text(
+            AdvImagePicker.gallery,
+            style: TextStyle(color: Colors.black87),
           ),
         ),
       ),
@@ -174,15 +156,12 @@ class _GalleryPageState extends State<GalleryPage> {
 
     if (_selectedAlbum == null) return Container();
 
-    return Container(
-      margin: EdgeInsets.only(bottom: _marginBottom),
-      child: ImageList(
-        fileNamePrefix: "asdfasdfasdf",
-        albumId: _selectedAlbum!.identifier,
-        maxImages: _multipleMode ? null : 1,
-        onListCreated: _onListCreated,
-        onImageTapped: _onImageTapped,
-      ),
+    return ImageList(
+      fileNamePrefix: "asdfasdfasdf",
+      albumId: _selectedAlbum!.identifier,
+      maxImages: _multipleMode ? widget.maxSize : 1,
+      onListCreated: _onListCreated,
+      onImageTapped: _onImageTapped,
     );
   }
 
@@ -191,6 +170,8 @@ class _GalleryPageState extends State<GalleryPage> {
 
     await getAlbums();
     _selectedAlbum = albums != null && albums!.length > 0 ? albums![0] : null;
+
+    _toggleMultipleMode();
 
     setState(() {});
 
@@ -210,41 +191,5 @@ class _GalleryPageState extends State<GalleryPage> {
     setState(() {
       buttonController.value = count;
     });
-  }
-}
-
-class _SmartButton extends StatefulWidget {
-  final ValueNotifier<int> controller;
-  final VoidCallback? onPressed;
-
-  _SmartButton(this.controller, {this.onPressed});
-
-  @override
-  State<StatefulWidget> createState() => _SmartButtonState();
-}
-
-class _SmartButtonState extends State<_SmartButton> {
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(() {
-      if (this.mounted) setState(() {});
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16.0),
-      child: FlatButton(
-        child: Text(
-          "${AdvImagePicker.next} (${widget.controller.value})",
-          style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white),
-        ),
-        color: AdvImagePicker.primaryColor,
-        onPressed: widget.onPressed,
-      ),
-    );
   }
 }

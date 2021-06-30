@@ -71,8 +71,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _pickImage() async {
-    files.addAll(await AdvImagePicker.pickImagesToFile(context, maxSize: 4080));
-    print("files => ${files.map((e) => e.path).join("\n")}");
+    files.addAll(await AdvImagePicker.pickImagesToFile(context, maxSize: 5));
     prepare();
   }
 
@@ -105,15 +104,17 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        child: isPreparing ? CircularProgressIndicator() : GridView.count(
-          crossAxisCount: 4,
-          children: thumbnails
-              .map((ImageProvider image) => Image(
-                    image: image,
-                    fit: BoxFit.cover,
-                  ))
-              .toList(),
-        ),
+        child: isPreparing
+            ? CircularProgressIndicator()
+            : GridView.count(
+                crossAxisCount: 4,
+                children: thumbnails
+                    .map((ImageProvider image) => Image(
+                          image: image,
+                          fit: BoxFit.cover,
+                        ))
+                    .toList(),
+              ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _pickImage,
